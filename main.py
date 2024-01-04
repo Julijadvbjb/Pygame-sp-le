@@ -116,6 +116,8 @@ class Player():
 			#check for collision with lava
 			if pygame.sprite.spritecollide(self, lava_group, False):
 				game_over = -1
+			if pygame.sprite.spritecollide(self, spike_group, False):
+				game_over = -1
 
 			#update player coordinates
 			self.rect.x += dx
@@ -220,6 +222,8 @@ while run:
 
 	world.draw()
 	lava_group.draw(screen)
+	spike_group.draw(screen)
+
 	game_over = player.update(game_over)
 
 
