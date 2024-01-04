@@ -15,36 +15,29 @@ pygame.display.set_caption('Platformer')
 #define game variables
 tile_size = 50
 game_over = 0
+main_menu = True
+
 
 
 #load images
 bg_img = pygame.image.load('images/pink1.webp')
 bg_img = pygame.transform.scale(bg_img, (screen_width, screen_height))
+reset_img = pygame.image.load('images/reset.png')
+reset_img = pygame.transform.scale(reset_img, (screen_width//5, screen_height//14))
+start_img = pygame.image.load('images/start.png')
+start_img = pygame.transform.scale(start_img, (screen_width//5, screen_height//14))
+
+game_over_img = pygame.image.load('images/game_over.png')  
+game_over_img = pygame.transform.scale(game_over_img, (screen_width//3 , screen_height//3))
+game_over_rect = game_over_img.get_rect(center=(screen_width // 2, screen_height // 2))
+
+
 
 
 class Player():
 	def __init__(self, x, y):
-		self.images_right = []
-		self.images_left = []
-		self.index = 0
-		self.counter = 0
-		for num in range(1, 5):
-			img_right = pygame.image.load(f'images/girl{num}.png')
-			img_right = pygame.transform.scale(img_right, (40, 50))
-			img_left = pygame.transform.flip(img_right, True, False)
-			self.images_right.append(img_right)
-			self.images_left.append(img_left)
-		self.dead_image = pygame.image.load('images/dead.png')
-		self.image = self.images_right[self.index]
-		self.rect = self.image.get_rect()
-		self.rect.x = x
-		self.rect.y = y
-		self.width = self.image.get_width()
-		self.height = self.image.get_height()
-		self.vel_y = 0
-		self.jumped = False
-		self.direction = 0
-		self.high = True
+		self.reset(x, y)
+		
 
 	def update(self, game_over):
 		dx = 0
@@ -130,25 +123,73 @@ class Player():
 
 		#draw player onto screen
 		screen.blit(self.image, self.rect)
-
 		return game_over
+	
+	def reset(self, x, y):
+		self.images_right = []
+		self.images_left = []
+		self.index = 0
+		self.counter = 0
+		for num in range(1, 5):
+			img_right = pygame.image.load(f'images/girl{num}.png')
+			img_right = pygame.transform.scale(img_right, (40, 50))
+			img_left = pygame.transform.flip(img_right, True, False)
+			self.images_right.append(img_right)
+			self.images_left.append(img_left)
+		self.dead_image = pygame.image.load('images/dead.png')
+		self.image = self.images_right[self.index]
+		self.rect = self.image.get_rect()
+		self.rect.x = x
+		self.rect.y = y
+		self.width = self.image.get_width()
+		self.height = self.image.get_height()
+		self.vel_y = 0
+		self.jumped = False
+		self.direction = 0
+		self.high = True
+	
+
+class Button():
+	def __init__(self, x, y, image):
+		self.image = image
+		self.rect = self.image.get_rect()
+		self.rect.x = x
+		self.rect.y = y
+		self.clicked = False
+	def draw(self):
+		action = False
+
+		#get mouse position
+		pos = pygame.mouse.get_pos()
+
+		#check mouseover and clicked conditions
+		if self.rect.collidepoint(pos):
+			if pygame.mouse.get_pressed()[0] == 1 and self.clicked == False:
+				action = True
+				self.clicked = True
+
+		if pygame.mouse.get_pressed()[0] == 0:
+			self.clicked = False
 
 
+		#draw button
+		screen.blit(self.image, self.rect)
+
+		return action
 
 class World():
 	def __init__(self, data):
 		self.tile_list = []
 
 		#load images
-		dirt_img = pygame.image.load('images/block.png')
-		grass_img = pygame.image.load('images/block.png')
+		block_img = pygame.image.load('images/block.png')
 
 		row_count = 0
 		for row in data:
 			col_count = 0
 			for tile in row:
 				if tile == 1:
-					img = pygame.transform.scale(dirt_img, (tile_size, tile_size))
+					img = pygame.transform.scale(block_img, (tile_size, tile_size))
 					img_rect = img.get_rect()
 					img_rect.x = col_count * tile_size
 					img_rect.y = row_count * tile_size
@@ -211,26 +252,38 @@ player = Player(100, screen_height - 130)
 lava_group = pygame.sprite.Group()
 spike_group = pygame.sprite.Group()
 world = World(world_data)
+# buttons
+reset_btn = Button(screen_width//5+150, screen_height//5+400, reset_img)
+start_btn = Button(screen_width // 5+150, screen_height //5 +200, start_img)
 
 run = True
 while run:
+    clock.tick(fps)
 
-	clock.tick(fps)
+    screen.blit(bg_img, (0, 0))
 
-	screen.blit(bg_img, (0, 0))
-	
+    if main_menu == True:
+        if start_btn.draw():
+            main_menu = False
+    else:
+        world.draw()
+        lava_group.draw(screen)
+        spike_group.draw(screen)
 
-	world.draw()
-	lava_group.draw(screen)
-	spike_group.draw(screen)
+        game_over = player.update(game_over)
 
-	game_over = player.update(game_over)
+        if game_over == -1:
+            game_over_rect.center = (screen_width // 2, screen_height // 2)
+            screen.blit(game_over_img, game_over_rect)
+            if reset_btn.draw():
+                player.reset(100, screen_height - 130)
+                game_over = 0
 
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            run = False
 
-	for event in pygame.event.get():
-		if event.type == pygame.QUIT:
-			run = False
-
-	pygame.display.update()
+    pygame.display.update()
 
 pygame.quit()
+
