@@ -1,5 +1,7 @@
 import pygame
 from pygame.locals import *
+from level_data import level1_data, level2_data, level3_data
+
 
 pygame.init()
 
@@ -16,6 +18,8 @@ pygame.display.set_caption('Platformer')
 tile_size = 50
 game_over = 0
 main_menu = True
+max_levels = 3
+current_level = 1
 
 
 
@@ -30,7 +34,6 @@ start_img = pygame.transform.scale(start_img, (screen_width//5, screen_height//1
 game_over_img = pygame.image.load('images/game_over.png')  
 game_over_img = pygame.transform.scale(game_over_img, (screen_width//3 , screen_height//3))
 game_over_rect = game_over_img.get_rect(center=(screen_width // 2, screen_height // 2))
-
 
 
 
@@ -111,6 +114,8 @@ class Player():
 				game_over = -1
 			if pygame.sprite.spritecollide(self, spike_group, False):
 				game_over = -1
+			if pygame.sprite.spritecollide(self, portal_group, False):
+				game_over = 1
 
 			#update player coordinates
 			self.rect.x += dx
@@ -201,6 +206,9 @@ class World():
 				if tile == 3:
 					spike = Spike(col_count*tile_size, row_count*tile_size+(tile_size//2))
 					spike_group.add(spike)
+				if tile == 4:
+					portal = Portal(col_count*tile_size, row_count*tile_size-(tile_size//2))
+					portal_group.add(portal)
 				col_count += 1
 			row_count += 1
 
@@ -224,33 +232,23 @@ class Spike(pygame.sprite.Sprite):
 		self.rect = self.image.get_rect()
 		self.rect.x = x
 		self.rect.y = y
-
-
-
-
-world_data = [
-[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], 
-[1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1], 
-[1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], 
-[1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], 
-[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], 
-[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], 
-[1, 1, 1, 1, 0, 3, 0, 1, 3, 1, 0, 0, 0, 0, 1], 
-[1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1], 
-[1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1], 
-[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1], 
-[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1], 
-[1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1], 
-[1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1], 
-[1, 0, 0, 1, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 1], 
-[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], 
-]
+class Portal(pygame.sprite.Sprite):
+	def __init__(self, x, y):
+		pygame.sprite.Sprite.__init__(self)
+		img = pygame.image.load('images/portal.png')
+		self.image = pygame.transform.scale(img, (tile_size, int(tile_size * 1.5)))
+		self.rect = self.image.get_rect()
+		self.rect.x = x
+		self.rect.y = y
 
 
 
 player = Player(100, screen_height - 130)
 lava_group = pygame.sprite.Group()
 spike_group = pygame.sprite.Group()
+portal_group = pygame.sprite.Group()
+
+world = world_data = globals()[f'level{current_level}_data']
 world = World(world_data)
 # buttons
 reset_btn = Button(screen_width//5+150, screen_height//5+400, reset_img)
@@ -262,13 +260,14 @@ while run:
 
     screen.blit(bg_img, (0, 0))
 
-    if main_menu == True:
+    if main_menu:
         if start_btn.draw():
             main_menu = False
     else:
         world.draw()
         lava_group.draw(screen)
         spike_group.draw(screen)
+        portal_group.draw(screen)
 
         game_over = player.update(game_over)
 
@@ -278,6 +277,18 @@ while run:
             if reset_btn.draw():
                 player.reset(100, screen_height - 130)
                 game_over = 0
+        elif game_over == 1:
+            current_level += 1
+            if current_level <= max_levels:
+                lava_group.empty()
+                spike_group.empty()
+                portal_group.empty()
+                world_data = globals()[f'level{current_level}_data']
+                world = World(world_data)
+                player.reset(100, screen_height - 130)
+                game_over = 0
+            else:
+                pass
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -286,4 +297,3 @@ while run:
     pygame.display.update()
 
 pygame.quit()
-
