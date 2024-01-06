@@ -2,7 +2,6 @@ import pygame
 from pygame.locals import *
 from level_data import level1_data, level2_data, level3_data
 
-
 pygame.init()
 
 clock = pygame.time.Clock()
@@ -20,6 +19,10 @@ game_over = 0
 main_menu = True
 max_levels = 3
 current_level = 1
+score = 0
+
+font = pygame.font.SysFont('Roboto', 30)
+white = (255,255,255)
 
 
 
@@ -35,7 +38,19 @@ game_over_img = pygame.image.load('images/game_over.png')
 game_over_img = pygame.transform.scale(game_over_img, (screen_width//3 , screen_height//3))
 game_over_rect = game_over_img.get_rect(center=(screen_width // 2, screen_height // 2))
 
+died_img = pygame.image.load('images/died.png')  
+died_img = pygame.transform.scale(died_img, (screen_width//3 , screen_height//3))
+died_rect = died_img.get_rect(center=(screen_width // 2, screen_height // 2))
 
+win_img = pygame.image.load('images/win.png')  
+win_img = pygame.transform.scale(win_img, (screen_width//3 , screen_height//3))
+win_rect = win_img.get_rect(center=(screen_width // 2, screen_height // 2))
+
+
+
+def draw_text(text, font, text_col, x, y):
+	img = font.render(text, True, text_col)
+	screen.blit(img, (x, y))
 
 class Player():
 	def __init__(self, x, y):
@@ -50,10 +65,10 @@ class Player():
 		if game_over == 0:
 			#get keypresses
 			key = pygame.key.get_pressed()
-			if key[pygame.K_SPACE] and self.jumped == False and self.high ==False:
+			if key[pygame.K_UP] and self.jumped == False and self.high ==False:
 				self.vel_y = -15
 				self.jumped = True
-			if key[pygame.K_SPACE] == False:
+			if key[pygame.K_UP] == False:
 				self.jumped = False
 			if key[pygame.K_LEFT]:
 				dx -= 5
@@ -124,6 +139,8 @@ class Player():
 
 		elif game_over == -1:
 			self.image = self.dead_image
+			died_rect.center = (screen_width//2 , screen_height // 2)
+			screen.blit(died_img, died_rect)
 			
 
 		#draw player onto screen
@@ -209,6 +226,9 @@ class World():
 				if tile == 4:
 					portal = Portal(col_count*tile_size, row_count*tile_size-(tile_size//2))
 					portal_group.add(portal)
+				if tile == 5:
+					candy = Candy(col_count*tile_size + (tile_size//2), row_count*tile_size+(tile_size//2))
+					candy_group.add(candy)
 				col_count += 1
 			row_count += 1
 
@@ -240,6 +260,14 @@ class Portal(pygame.sprite.Sprite):
 		self.rect = self.image.get_rect()
 		self.rect.x = x
 		self.rect.y = y
+class Candy(pygame.sprite.Sprite):
+	def __init__(self, x, y):
+		pygame.sprite.Sprite.__init__(self)
+		img = pygame.image.load('images/candy.png')
+		self.image = pygame.transform.scale(img, (tile_size//2, tile_size//2))
+		self.rect = self.image.get_rect()
+		self.rect.center = (x,y)
+		
 
 
 
@@ -247,6 +275,10 @@ player = Player(100, screen_height - 130)
 lava_group = pygame.sprite.Group()
 spike_group = pygame.sprite.Group()
 portal_group = pygame.sprite.Group()
+candy_group = pygame.sprite.Group()
+
+score_candy = Candy(tile_size // 2, tile_size // 2)
+candy_group.add(score_candy)
 
 world = world_data = globals()[f'level{current_level}_data']
 world = World(world_data)
@@ -265,30 +297,48 @@ while run:
             main_menu = False
     else:
         world.draw()
+
+        if game_over == 0:
+            if pygame.sprite.spritecollide(player, candy_group, True):
+                score += 1
+            draw_text('X ' + str(score), font, white, tile_size - 10, 10)
         lava_group.draw(screen)
         spike_group.draw(screen)
         portal_group.draw(screen)
-
+        candy_group.draw(screen)
         game_over = player.update(game_over)
 
         if game_over == -1:
-            game_over_rect.center = (screen_width // 2, screen_height // 2)
-            screen.blit(game_over_img, game_over_rect)
             if reset_btn.draw():
                 player.reset(100, screen_height - 130)
                 game_over = 0
-        elif game_over == 1:
+        if game_over == 1:
             current_level += 1
             if current_level <= max_levels:
                 lava_group.empty()
                 spike_group.empty()
                 portal_group.empty()
+                candy_group.empty()
+
                 world_data = globals()[f'level{current_level}_data']
                 world = World(world_data)
                 player.reset(100, screen_height - 130)
                 game_over = 0
             else:
-                pass
+                win_rect.center = (screen_width // 2, screen_height // 2)
+                screen.blit(win_img, win_rect)
+                draw_text('Your score: ' + str(score), font, white, tile_size + 270, 520)
+                if reset_btn.draw():
+                    current_level = 1
+                    lava_group.empty()
+                    spike_group.empty()
+                    portal_group.empty()
+                    candy_group.empty()
+                    world_data = globals()[f'level{current_level}_data']
+                    world = World(world_data)
+                    player.reset(100, screen_height - 130)
+                    game_over = 0
+                    score = 0
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
