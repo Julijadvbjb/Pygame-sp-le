@@ -1,6 +1,6 @@
 import pygame
 from pygame.locals import *
-from level_data import level1_data, level2_data, level3_data
+from level_data import level1_data, level2_data, level3_data, level4_data
 
 pygame.init()
 
@@ -11,15 +11,16 @@ screen_width = 750
 screen_height = 750
 
 screen = pygame.display.set_mode((screen_width, screen_height))
-pygame.display.set_caption('Platformer')
+pygame.display.set_caption('Candy Girl')
 
 #define game variables
 tile_size = 50
 game_over = 0
 main_menu = True
-max_levels = 3
+max_levels = 4
 current_level = 1
 score = 0
+lives = 3
 
 font = pygame.font.SysFont('Roboto', 30)
 white = (255,255,255)
@@ -33,6 +34,11 @@ reset_img = pygame.image.load('images/reset.png')
 reset_img = pygame.transform.scale(reset_img, (screen_width//5, screen_height//14))
 start_img = pygame.image.load('images/start.png')
 start_img = pygame.transform.scale(start_img, (screen_width//5, screen_height//14))
+menu_img = pygame.image.load('images/menu.png')
+menu_img = pygame.transform.scale(menu_img, (screen_width//5, screen_height//14))
+exit_img = pygame.image.load('images/exit.png')
+exit_img = pygame.transform.scale(exit_img, (screen_width//5, screen_height//14))
+
 
 game_over_img = pygame.image.load('images/game_over.png')  
 game_over_img = pygame.transform.scale(game_over_img, (screen_width//3 , screen_height//3))
@@ -57,7 +63,7 @@ class Player():
 		self.reset(x, y)
 		
 
-	def update(self, game_over):
+	def update(self, game_over, lives):
 		dx = 0
 		dy = 0
 		walk_cooldown = 5
@@ -65,10 +71,10 @@ class Player():
 		if game_over == 0:
 			#get keypresses
 			key = pygame.key.get_pressed()
-			if key[pygame.K_UP] and self.jumped == False and self.high ==False:
+			if key[pygame.K_SPACE] and self.jumped == False and self.high ==False:
 				self.vel_y = -15
 				self.jumped = True
-			if key[pygame.K_UP] == False:
+			if key[pygame.K_SPACE] == False:
 				self.jumped = False
 			if key[pygame.K_LEFT]:
 				dx -= 5
@@ -125,10 +131,10 @@ class Player():
 
 
 			#check for collision with lava
-			if pygame.sprite.spritecollide(self, lava_group, False):
+			if pygame.sprite.spritecollide(self, lava_group, False) or pygame.sprite.spritecollide(self, spike_group, False):
 				game_over = -1
-			if pygame.sprite.spritecollide(self, spike_group, False):
-				game_over = -1
+				lives -= 1
+			
 			if pygame.sprite.spritecollide(self, portal_group, False):
 				game_over = 1
 
@@ -145,7 +151,7 @@ class Player():
 
 		#draw player onto screen
 		screen.blit(self.image, self.rect)
-		return game_over
+		return game_over, lives
 	
 	def reset(self, x, y):
 		self.images_right = []
@@ -285,6 +291,8 @@ world = World(world_data)
 # buttons
 reset_btn = Button(screen_width//5+150, screen_height//5+400, reset_img)
 start_btn = Button(screen_width // 5+150, screen_height //5 +200, start_img)
+exit_button = Button(screen_width // 5 + 150, screen_height // 5 +300, exit_img)
+menu_btn = Button(screen_width//5+150, screen_height//5+400, menu_img)
 
 run = True
 while run:
@@ -293,52 +301,78 @@ while run:
     screen.blit(bg_img, (0, 0))
 
     if main_menu:
+        if exit_button.draw():
+            run = False
         if start_btn.draw():
             main_menu = False
     else:
         world.draw()
+        if lives > 0:
+            if game_over == 0:
+                if pygame.sprite.spritecollide(player, candy_group, True):
+                    score += 1
+                draw_text('X ' + str(score), font, white, tile_size - 10, 10)
+                lava_group.draw(screen)
+                spike_group.draw(screen)
+                portal_group.draw(screen)
+                candy_group.draw(screen)
+                game_over, lives = player.update(game_over, lives)
 
-        if game_over == 0:
-            if pygame.sprite.spritecollide(player, candy_group, True):
-                score += 1
-            draw_text('X ' + str(score), font, white, tile_size - 10, 10)
-        lava_group.draw(screen)
-        spike_group.draw(screen)
-        portal_group.draw(screen)
-        candy_group.draw(screen)
-        game_over = player.update(game_over)
+            if game_over == -1:
+                died_rect.center = (screen_width // 2, screen_height // 2)
+                screen.blit(died_img, died_rect)
+                draw_text('Lives left: ' + str(lives), font, white, tile_size + 270, 520)
 
-        if game_over == -1:
-            if reset_btn.draw():
-                player.reset(100, screen_height - 130)
-                game_over = 0
-        if game_over == 1:
-            current_level += 1
-            if current_level <= max_levels:
-                lava_group.empty()
-                spike_group.empty()
-                portal_group.empty()
-                candy_group.empty()
-
-                world_data = globals()[f'level{current_level}_data']
-                world = World(world_data)
-                player.reset(100, screen_height - 130)
-                game_over = 0
-            else:
-                win_rect.center = (screen_width // 2, screen_height // 2)
-                screen.blit(win_img, win_rect)
-                draw_text('Your score: ' + str(score), font, white, tile_size + 270, 520)
                 if reset_btn.draw():
-                    current_level = 1
+                    player.reset(100, screen_height - 130)
+                    game_over = 0
+
+            if game_over == 1:
+                current_level += 1
+                if current_level <= max_levels:
                     lava_group.empty()
                     spike_group.empty()
                     portal_group.empty()
                     candy_group.empty()
+
                     world_data = globals()[f'level{current_level}_data']
                     world = World(world_data)
                     player.reset(100, screen_height - 130)
                     game_over = 0
-                    score = 0
+                else:
+                    win_rect.center = (screen_width // 2, screen_height // 2)
+                    screen.blit(win_img, win_rect)
+                    draw_text('Your score: ' + str(score), font, white, tile_size + 270, 520)
+                    if menu_btn.draw():
+                        current_level = 1
+                        lava_group.empty()
+                        spike_group.empty()
+                        portal_group.empty()
+                        candy_group.empty()
+                        world_data = globals()[f'level{current_level}_data']
+                        world = World(world_data)
+                        player.reset(100, screen_height - 130)
+                        game_over = 0
+                        score = 0
+                        lives = 3
+                        main_menu = True
+
+        if lives <= 0:
+            game_over_rect.center = (screen_width // 2, screen_height // 2)
+            screen.blit(game_over_img, game_over_rect)
+            if menu_btn.draw():
+                current_level = 1
+                lava_group.empty()
+                spike_group.empty()
+                portal_group.empty()
+                candy_group.empty()
+                world_data = globals()[f'level{current_level}_data']
+                world = World(world_data)
+                player.reset(100, screen_height - 130)
+                game_over = 0
+                score = 0
+                lives = 3
+                main_menu = True
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -347,3 +381,6 @@ while run:
     pygame.display.update()
 
 pygame.quit()
+
+
+
