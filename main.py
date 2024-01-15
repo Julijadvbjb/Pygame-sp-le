@@ -1,7 +1,10 @@
 import pygame
 from pygame.locals import *
+from pygame import mixer
 from level_data import level1_data, level2_data, level3_data, level4_data 
 
+pygame.mixer.pre_init(44100, -16, 2, 512)
+mixer.init()
 pygame.init()
 
 # Initialize clock and frames per second
@@ -24,6 +27,7 @@ max_levels = 4
 current_level = 1
 score = 0
 lives = 3
+game_over_played = False
 
 # Set up font and color
 font = pygame.font.SysFont('Roboto', 30)
@@ -52,6 +56,16 @@ died_rect = died_img.get_rect(center=(screen_width // 2, screen_height // 2))
 win_img = pygame.image.load('images/win.png')  
 win_img = pygame.transform.scale(win_img, (screen_width//3 , screen_height//3))
 win_rect = win_img.get_rect(center=(screen_width // 2, screen_height // 2))
+
+#sounds
+pygame.mixer.music.load('images/bg_sound.wav')
+pygame.mixer.music.set_volume(0.5)
+pygame.mixer.music.play(-1, 0.0, 5000)
+die_sound = pygame.mixer.Sound('images/died_sound.wav')
+gover_sound = pygame.mixer.Sound('images/game_over_sound.wav')
+gover_sound.set_volume(0.8)
+jump = pygame.mixer.Sound('images/jump.wav')
+jump.set_volume(0.8)
 
 # Function to draw text on the screen
 def draw_text(text, font, text_col, x, y):
@@ -97,10 +111,11 @@ class Player():
         if game_over == 0:
             # Get keypresses
             key = pygame.key.get_pressed()
-            if key[pygame.K_SPACE] and self.jumped == False and self.high == False:
+            if key[pygame.K_UP] and self.jumped == False and self.high == False:
                 self.vel_y = -15
                 self.jumped = True
-            if key[pygame.K_SPACE] == False:
+                jump.play()
+            if key[pygame.K_UP] == False:
                 self.jumped = False
             if key[pygame.K_LEFT]:
                 dx -= 5
@@ -157,6 +172,8 @@ class Player():
             if pygame.sprite.spritecollide(self, lava_group, False) or pygame.sprite.spritecollide(self, spike_group, False):
                 game_over = -1
                 lives -= 1
+                die_sound.play()
+                
             # Check for collision with portal
             if pygame.sprite.spritecollide(self, portal_group, False):
                 game_over = 1
@@ -164,6 +181,9 @@ class Player():
             # Update player coordinates
             self.rect.x += dx
             self.rect.y += dy
+
+        elif game_over == -1:
+             self.image = self.dead_image
 
         # Draw player onto screen
         screen.blit(self.image, self.rect)
@@ -397,11 +417,11 @@ while run:
                 if pygame.sprite.spritecollide(player, candy_group, True):
                     score += 1
                 draw_text('X ' + str(score), font, white, tile_size - 10, 10)
-                lava_group.draw(screen)
-                spike_group.draw(screen)
-                portal_group.draw(screen)
-                candy_group.draw(screen)
-                game_over, lives = player.update(game_over, lives)
+            lava_group.draw(screen)
+            spike_group.draw(screen)
+            portal_group.draw(screen)
+            candy_group.draw(screen)
+            game_over, lives = player.update(game_over, lives)
 
             if game_over == -1:
                 died_rect.center = (screen_width // 2, screen_height // 2)
@@ -445,6 +465,10 @@ while run:
         if lives <= 0:
             game_over_rect.center = (screen_width // 2, screen_height // 2)
             screen.blit(game_over_img, game_over_rect)
+
+            if not game_over_played:
+                    gover_sound.play()
+                    game_over_played = True
             if menu_btn.draw():
                 current_level = 1
                 lava_group.empty()
