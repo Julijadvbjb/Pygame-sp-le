@@ -431,6 +431,9 @@ while run:
                 if reset_btn.draw():
                     player.reset(100, screen_height - 130)
                     game_over = 0
+                    score_candy = Candy(tile_size // 2, tile_size // 2)
+                    candy_group.add(score_candy)
+
 
             if game_over == 1:
                 current_level += 1
@@ -444,6 +447,8 @@ while run:
                     world = World(world_data)
                     player.reset(100, screen_height - 130)
                     game_over = 0
+                    score_candy = Candy(tile_size // 2, tile_size // 2)
+                    candy_group.add(score_candy)
                 else:
                     win_rect.center = (screen_width // 2, screen_height // 2)
                     screen.blit(win_img, win_rect)
