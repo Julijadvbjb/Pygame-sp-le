@@ -24,7 +24,7 @@ tile_size = 50
 game_over = 0
 main_menu = True
 max_levels = 4
-current_level = 1
+current_level = 3
 score = 0
 lives = 3
 game_over_played = False
@@ -51,7 +51,7 @@ game_over_rect = game_over_img.get_rect(center=(screen_width // 2, screen_height
 
 died_img = pygame.image.load('images/died.png')  
 died_img = pygame.transform.scale(died_img, (screen_width//3 , screen_height//3))
-died_rect = died_img.get_rect(center=(screen_width // 2, screen_height // 2))
+died_rect = died_img.get_rect(center=(screen_width // 2, screen_height // 2 ))
 
 win_img = pygame.image.load('images/win.png')  
 win_img = pygame.transform.scale(win_img, (screen_width//3 , screen_height//3))
@@ -107,6 +107,7 @@ class Player():
         dx = 0
         dy = 0
         walk_cooldown = 5
+        col_thresh = 20
 
         if game_over == 0:
             # Get keypresses
@@ -169,7 +170,7 @@ class Player():
                         self.high = False
 
             # Check for collision with lava and spikes
-            if pygame.sprite.spritecollide(self, lava_group, False) or pygame.sprite.spritecollide(self, spike_group, False):
+            if pygame.sprite.spritecollide(self, lava_group, False) or pygame.sprite.spritecollide(self, spike_group, False) or  pygame.sprite.spritecollide(self, enemy_group, False):
                 game_over = -1
                 lives -= 1
                 die_sound.play()
@@ -177,6 +178,23 @@ class Player():
             # Check for collision with portal
             if pygame.sprite.spritecollide(self, portal_group, False):
                 game_over = 1
+            
+            for platform in platform_group:
+                if platform.rect.colliderect(self.rect.x + dx, self.rect.y, self.width, self.height):
+                      dx = 0
+                if platform.rect.colliderect(self.rect.x, self.rect.y + dy, self.width, self.height):
+                    if abs((self.rect.top + dy) - platform.rect.bottom) < col_thresh:
+                        self.vel_y = 0
+                        dy = platform.rect.bottom - self.rect.top
+                    elif abs((self.rect.bottom + dy) - platform.rect.top) < col_thresh:
+                         self.rect.bottom = platform.rect.top - 1
+                         dy = 0
+                         self.high = False
+                    if platform.move_x != 0:
+                        self.rect.x += platform.move_direction
+                    
+                         
+
 
             # Update player coordinates
             self.rect.x += dx
@@ -262,54 +280,60 @@ class Button():
 		return action
 
 class World():
-	"""
+    """
     Class representing the game world with tiles and game elements.
 
     Attributes:
     - tile_list: List of tiles in the world.
     """
-	def __init__(self, data):
-		"""
+    def __init__(self, data):
+        """
         Initialize the world based on the provided level data.
 
         Parameters:
         - data: 2D list representing the layout of tiles in the level.
         """
-		self.tile_list = []
+        self.tile_list = []
 
-		#load images
-		block_img = pygame.image.load('images/block.png')
+        # load images
+        block_img = pygame.image.load('images/block.png')
 
-		row_count = 0
-		for row in data:
-			col_count = 0
-			for tile in row:
-				if tile == 1:
-					img = pygame.transform.scale(block_img, (tile_size, tile_size))
-					img_rect = img.get_rect()
-					img_rect.x = col_count * tile_size
-					img_rect.y = row_count * tile_size
-					tile = (img, img_rect)
-					self.tile_list.append(tile)
-				if tile == 2:
-					lava = Lava(col_count*tile_size, row_count*tile_size+(tile_size//2))
-					lava_group.add(lava)
-				if tile == 3:
-					spike = Spike(col_count*tile_size, row_count*tile_size+(tile_size//2))
-					spike_group.add(spike)
-				if tile == 4:
-					portal = Portal(col_count*tile_size, row_count*tile_size-(tile_size//2))
-					portal_group.add(portal)
-				if tile == 5:
-					candy = Candy(col_count*tile_size + (tile_size//2), row_count*tile_size+(tile_size//2))
-					candy_group.add(candy)
-				col_count += 1
-			row_count += 1
+        row_count = 0
+        for row in data:
+            col_count = 0
+            for tile in row:
+                if tile == 1:
+                    img = pygame.transform.scale(block_img, (tile_size, tile_size))
+                    img_rect = img.get_rect()
+                    img_rect.x = col_count * tile_size
+                    img_rect.y = row_count * tile_size
+                    tile = (img, img_rect)
+                    self.tile_list.append(tile)
+                if tile == 2:
+                    lava = Lava(col_count * tile_size, row_count * tile_size + (tile_size // 2))
+                    lava_group.add(lava)
+                if tile == 3:
+                    spike = Spike(col_count * tile_size, row_count * tile_size + (tile_size // 2))
+                    spike_group.add(spike)
+                if tile == 4:
+                    portal = Portal(col_count * tile_size, row_count * tile_size - (tile_size // 2))
+                    portal_group.add(portal)
+                if tile == 5:
+                    candy = Candy(col_count * tile_size + (tile_size // 2), row_count * tile_size + (tile_size // 2))
+                    candy_group.add(candy)
+                if tile == 6:
+                    enemy = Enemy(col_count * tile_size, row_count * tile_size)
+                    enemy_group.add(enemy)
+                if tile == 7:
+                    platform = Platform(col_count * tile_size, row_count * tile_size, 0)
+                    platform_group.add(platform)
+                col_count += 1
+            row_count += 1
 
-	def draw(self):
-		"""Draw the tiles in the world on the screen."""
-		for tile in self.tile_list:
-			screen.blit(tile[0], tile[1])
+    def draw(self):
+        for tile in self.tile_list:
+            screen.blit(tile[0], tile[1])
+
 
 class Lava(pygame.sprite.Sprite):
     """
@@ -327,6 +351,74 @@ class Lava(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
+class Platform(pygame.sprite.Sprite):
+    def __init__(self, x, y, move_x):
+        pygame.sprite.Sprite.__init__(self)
+        img = pygame.image.load('images/platform.png')
+        self.image = pygame.transform.scale(img, (tile_size, tile_size // 3))
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.move_direction = 1
+        self.move_counter = 0
+        self.move_x = move_x
+
+    def update(self):
+        """
+        Update the position of the platform sprite based on its movement pattern.
+        The platform moves up and down, changing direction after a certain distance.
+
+        """
+        self.rect.y += self.move_direction
+        self.move_counter += 1
+        if abs(self.move_counter) > 50:
+            self.move_direction *= -1
+            self.move_counter *= -1
+
+class Enemy(pygame.sprite.Sprite):
+    """
+    A class representing an enemy sprite in the game.
+
+    Attributes:
+    - x, y: Initial position of the enemy sprite.
+    - image: Surface representing the enemy sprite's image.
+    - rect: Rectangular area occupied by the enemy sprite.
+    - move_direction: Direction in which the enemy moves (1 for right, -1 for left).
+    - move_counter: Counter to track the movement of the enemy.
+
+    Methods:
+    - update(): Update the position of the enemy sprite based on its movement pattern.
+
+    """
+    def __init__(self, x, y):
+        """
+        Initialize the enemy sprite.
+
+        Parameters:
+        - x, y: Initial position of the enemy sprite.
+        """
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pygame.image.load('images/enemy.png')
+        self.image = pygame.transform.scale(self.image, (tile_size, tile_size))
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.move_direction = 1
+        self.move_counter = 0
+
+    def update(self):
+        """
+        Update the position of the enemy sprite based on its movement pattern.
+        The enemy moves back and forth, changing direction after a certain distance.
+
+        """
+        self.rect.x += self.move_direction
+        self.move_counter += 1
+        if abs(self.move_counter) > 50:
+            self.move_direction *= -1
+            self.move_counter *= -1
+
+
 
 class Spike(pygame.sprite.Sprite):
     """
@@ -384,6 +476,8 @@ lava_group = pygame.sprite.Group()
 spike_group = pygame.sprite.Group()
 portal_group = pygame.sprite.Group()
 candy_group = pygame.sprite.Group()
+enemy_group = pygame.sprite.Group()
+platform_group = pygame.sprite.Group()
 
 score_candy = Candy(tile_size // 2, tile_size // 2)
 candy_group.add(score_candy)
@@ -414,6 +508,8 @@ while run:
         world.draw()
         if lives > 0:
             if game_over == 0:
+                enemy_group.update()
+                platform_group.update()
                 if pygame.sprite.spritecollide(player, candy_group, True):
                     score += 1
                 draw_text('X ' + str(score), font, white, tile_size - 10, 10)
@@ -421,10 +517,12 @@ while run:
             spike_group.draw(screen)
             portal_group.draw(screen)
             candy_group.draw(screen)
+            enemy_group.draw(screen)
+            platform_group.draw(screen)
             game_over, lives = player.update(game_over, lives)
 
             if game_over == -1:
-                died_rect.center = (screen_width // 2, screen_height // 2)
+                died_rect.center = (screen_width // 2, screen_height // 2 )
                 screen.blit(died_img, died_rect)
                 draw_text('Lives left: ' + str(lives), font, white, tile_size + 270, 520)
 
@@ -433,6 +531,7 @@ while run:
                     game_over = 0
                     score_candy = Candy(tile_size // 2, tile_size // 2)
                     candy_group.add(score_candy)
+                    enemy_group.draw(screen)
 
 
             if game_over == 1:
@@ -442,6 +541,8 @@ while run:
                     spike_group.empty()
                     portal_group.empty()
                     candy_group.empty()
+                    enemy_group.empty()
+                    platform_group.empty()
 
                     world_data = globals()[f'level{current_level}_data']
                     world = World(world_data)
@@ -449,6 +550,7 @@ while run:
                     game_over = 0
                     score_candy = Candy(tile_size // 2, tile_size // 2)
                     candy_group.add(score_candy)
+                    enemy_group.draw(screen)
                 else:
                     win_rect.center = (screen_width // 2, screen_height // 2)
                     screen.blit(win_img, win_rect)
@@ -459,6 +561,8 @@ while run:
                         spike_group.empty()
                         portal_group.empty()
                         candy_group.empty()
+                        enemy_group.empty()
+                        platform_group.empty()
                         world_data = globals()[f'level{current_level}_data']
                         world = World(world_data)
                         player.reset(100, screen_height - 130)
@@ -480,6 +584,8 @@ while run:
                 spike_group.empty()
                 portal_group.empty()
                 candy_group.empty()
+                enemy_group.empty()
+                platform_group.empty()
                 world_data = globals()[f'level{current_level}_data']
                 world = World(world_data)
                 player.reset(100, screen_height - 130)
